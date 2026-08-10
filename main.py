@@ -1,5 +1,5 @@
 from src.detector import check_disk_usage, check_service_status
-from src.remediator import restart_service
+from src.remediator import restart_service, clear_package_cache, clear_rotated_logs
 from src.logger import log_event
 from src.config_loader import load_config
 from src.alerter import send_alert
@@ -15,16 +15,36 @@ def run_checks():
         threshold_percent=config["disk"]["threshold_percent"],
     )
     print(f"[Disk] {disk_result['percent_used']}% used (threshold {disk_result['threshold']}%)")
-    log_event(disk_result, None)
+
+    disk_remediation = None
+    if disk_result["is_critical"]:
+        print("  -> Disk critical. Attempting cleanup...")
+        cache_result = clear_package_cache()
+        logs_result = clear_rotated_logs()
+        disk_remediation = {"cache_cleanup": cache_result, "logs_cleanup": logs_result}
+        print(f"  -> Cache cleanup: {cache_result['success']}, Logs cleanup: {logs_result['success']}")
+
+    log_event(disk_result, disk_remediation)
 
     if disk_result["is_critical"]:
-        alert_msg = (
-            f"🚨 Disk critical on {disk_result['mount_point']}: "
-            f"{disk_result['percent_used']}% used (threshold {disk_result['threshold']}%). "
-            f"No automated remediation available yet."
+        # Re-check after cleanup to see if it actually helped
+        recheck = check_disk_usage(
+            mount_point=config["disk"]["mount_point"],
+            threshold_percent=config["disk"]["threshold_percent"],
         )
-        print("  -> Disk critical, no remediation available. Sending alert...")
-        send_alert(alert_msg)
+        print(f"  -> Re-checked disk after cleanup: {recheck['percent_used']}% used")
+        log_event(recheck, None)
+
+        if recheck["is_critical"]:
+            alert_msg = (
+                f"🚨 Disk still critical on {recheck['mount_point']} after cleanup attempt: "
+                f"{recheck['percent_used']}% used (threshold {recheck['threshold']}%). "
+                f"Manual intervention needed."
+            )
+            print("  -> Still critical after cleanup. Sending alert...")
+            send_alert(alert_msg)
+        else:
+            print("  -> Cleanup resolved the issue. No alert needed.")
 
     # --- Service checks ---
     for service in config["services"]:
