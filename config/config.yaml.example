@@ -5,3 +5,5 @@ disk:
 services:
   - sshd
   - cockpit.socket
+alerting:
+  slack_webhook_url: "PASTE_YOUR_WEBHOOK_URL_HERE"
