@@ -6,6 +6,8 @@ Never takes remediation action — that belongs to remediator.py.
 
 import psutil
 import subprocess
+import os
+from datetime import datetime, timezone
 
 
 def check_disk_usage(mount_point="/", threshold_percent=85):
@@ -87,4 +89,34 @@ def check_runaway_processes(cpu_threshold=80.0, mem_threshold=80.0):
         "mem_threshold": mem_threshold,
         "offenders": offenders,
         "found_any": len(offenders) > 0,
+    }
+
+
+def check_cron_heartbeat(heartbeat_file, max_age_minutes):
+    """
+    Checks whether a heartbeat file (touched by a cron job on success) was
+    updated recently enough. If the file is missing entirely, or its last
+    modified time is older than max_age_minutes, flags it as overdue.
+    """
+    if not os.path.exists(heartbeat_file):
+        return {
+            "check": "cron_heartbeat",
+            "heartbeat_file": heartbeat_file,
+            "max_age_minutes": max_age_minutes,
+            "exists": False,
+            "age_minutes": None,
+            "is_overdue": True,
+        }
+
+    mtime = os.path.getmtime(heartbeat_file)
+    age_seconds = datetime.now(timezone.utc).timestamp() - mtime
+    age_minutes = round(age_seconds / 60, 1)
+
+    return {
+        "check": "cron_heartbeat",
+        "heartbeat_file": heartbeat_file,
+        "max_age_minutes": max_age_minutes,
+        "exists": True,
+        "age_minutes": age_minutes,
+        "is_overdue": age_minutes > max_age_minutes,
     }
