@@ -1,24 +1,23 @@
 from src.detector import check_disk_usage, check_service_status
 from src.remediator import restart_service
 from src.logger import log_event
-
-# Services to monitor — will move to config.yaml later
-MONITORED_SERVICES = ["sshd", "cockpit.socket"]
+from src.config_loader import load_config
 
 
 def run_checks():
+    config = load_config()
     print("=== Self-Healing Agent — Run Started ===")
 
     # --- Disk check ---
-    disk_result = check_disk_usage()
+    disk_result = check_disk_usage(
+        mount_point=config["disk"]["mount_point"],
+        threshold_percent=config["disk"]["threshold_percent"],
+    )
     print(f"[Disk] {disk_result['percent_used']}% used (threshold {disk_result['threshold']}%)")
     log_event(disk_result, None)
-    # Note: no remediation wired up for disk yet — clear_package_cache/
-    # clear_rotated_logs from remediator.py aren't hooked in here yet,
-    # that's Phase 3 work. For now we just detect and log.
 
     # --- Service checks ---
-    for service in MONITORED_SERVICES:
+    for service in config["services"]:
         result = check_service_status(service)
         print(f"[Service: {service}] status={result['status']}")
 

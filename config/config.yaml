@@ -1,0 +1,7 @@
+disk:
+  mount_point: "/"
+  threshold_percent: 85
+
+services:
+  - sshd
+  - cockpit.socket
