@@ -46,3 +46,45 @@ def check_service_status(service_name):
         "status": status,
         "is_down": is_down,
     }
+import psutil
+
+
+def check_runaway_processes(cpu_threshold=80.0, mem_threshold=80.0):
+    """
+    Scans running processes for any exceeding the CPU or memory thresholds.
+    Detect-only — does not kill or touch anything. Returns a dict listing
+    any offending processes found.
+    """
+    offenders = []
+
+    # First pass primes psutil's internal CPU-usage sampling (see note below)
+    for proc in psutil.process_iter(['pid', 'name']):
+        try:
+            proc.cpu_percent(interval=None)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    import time
+    time.sleep(1)  # brief window so cpu_percent() has something to measure
+
+    for proc in psutil.process_iter(['pid', 'name']):
+        try:
+            cpu = proc.cpu_percent(interval=None)
+            mem = proc.memory_percent()
+            if cpu >= cpu_threshold or mem >= mem_threshold:
+                offenders.append({
+                    "pid": proc.pid,
+                    "name": proc.name(),
+                    "cpu_percent": round(cpu, 1),
+                    "mem_percent": round(mem, 1),
+                })
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    return {
+        "check": "runaway_processes",
+        "cpu_threshold": cpu_threshold,
+        "mem_threshold": mem_threshold,
+        "offenders": offenders,
+        "found_any": len(offenders) > 0,
+    }
