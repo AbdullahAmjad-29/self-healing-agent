@@ -1,4 +1,4 @@
-from src.detector import check_disk_usage, check_service_status, check_runaway_processes
+from src.detector import check_disk_usage, check_service_status, check_runaway_processes, check_cron_heartbeat
 from src.remediator import restart_service, clear_package_cache, clear_rotated_logs
 from src.logger import log_event
 from src.config_loader import load_config
@@ -84,6 +84,23 @@ def run_checks():
             f"No automated action taken — review manually."
         )
         print("  -> Runaway process(es) found. Sending alert...")
+        send_alert(alert_msg)
+
+    # --- Cron heartbeat check ---
+    cron_result = check_cron_heartbeat(
+        heartbeat_file=config["cron"]["heartbeat_file"],
+        max_age_minutes=config["cron"]["max_age_minutes"],
+    )
+    print(f"[Cron] Overdue: {cron_result['is_overdue']} (age: {cron_result['age_minutes']} min)")
+    log_event(cron_result, None)
+
+    if cron_result["is_overdue"]:
+        alert_msg = (
+            f"🚨 Cron heartbeat overdue: {cron_result['heartbeat_file']} "
+            f"(age: {cron_result['age_minutes']} min, max allowed: {cron_result['max_age_minutes']} min). "
+            f"The scheduled job may have failed or stopped running."
+        )
+        print("  -> Cron heartbeat overdue. Sending alert...")
         send_alert(alert_msg)
 
     print("=== Self-Healing Agent — Run Complete ===")

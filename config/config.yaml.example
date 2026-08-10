@@ -12,3 +12,7 @@ processes:
 
 alerting:
   slack_webhook_url: "PASTE_YOUR_WEBHOOK_URL_HERE"
+
+cron:
+  heartbeat_file: "/path/to/your/heartbeat/file"
+  max_age_minutes: 5
