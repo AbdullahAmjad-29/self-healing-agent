@@ -5,5 +5,10 @@ disk:
 services:
   - sshd
   - cockpit.socket
+
+processes:
+  cpu_threshold: 80.0
+  mem_threshold: 80.0
+
 alerting:
   slack_webhook_url: "PASTE_YOUR_WEBHOOK_URL_HERE"
